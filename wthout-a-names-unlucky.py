@@ -100,7 +100,7 @@ class FullLatroTrainer:
         self.eval_loader = DataLoader(eval_ds, batch_size=1)
 
         self.model = self.accelerator.prepare(self.model)
-        self.ref_model = self.ref_model.to(self.accelerator.device)
+        #self.ref_model = self.ref_model.to(self.accelerator.device)
         #self.model.gradient_checkpointing_enable()
 
 
