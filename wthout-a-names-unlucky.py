@@ -1,3 +1,4 @@
+# %% [code]
 # %% [code] {"execution":{"iopub.status.busy":"2025-03-22T23:21:44.343870Z","iopub.execute_input":"2025-03-22T23:21:44.344220Z","iopub.status.idle":"2025-03-22T23:21:46.587112Z","shell.execute_reply.started":"2025-03-22T23:21:44.344168Z","shell.execute_reply":"2025-03-22T23:21:46.586094Z"},"jupyter":{"outputs_hidden":false}}
 import pandas as pd
 from datasets import Dataset
@@ -100,7 +101,7 @@ class FullLatroTrainer:
 
         self.model = self.accelerator.prepare(self.model)
         self.ref_model = self.ref_model.to(self.accelerator.device)
-        self.model.gradient_checkpointing_enable()
+        #self.model.gradient_checkpointing_enable()
 
 
     def truncate_response(self, sequences):
