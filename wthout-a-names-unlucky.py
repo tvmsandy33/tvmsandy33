@@ -1,4 +1,4 @@
-# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:50:58.839325Z","iopub.execute_input":"2025-03-22T19:50:58.839629Z","iopub.status.idle":"2025-03-22T19:51:00.766624Z","shell.execute_reply.started":"2025-03-22T19:50:58.839605Z","shell.execute_reply":"2025-03-22T19:51:00.765996Z"}}
+# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:50:58.839325Z","iopub.execute_input":"2025-03-22T19:50:58.839629Z","iopub.status.idle":"2025-03-22T19:51:00.766624Z","shell.execute_reply.started":"2025-03-22T19:50:58.839605Z","shell.execute_reply":"2025-03-22T19:51:00.765996Z"},"jupyter":{"outputs_hidden":false}}
 import pandas as pd
 from datasets import Dataset
 df = pd.read_csv('/kaggle/input/ai-mathematical-olympiad-progress-prize-2/reference.csv')
@@ -6,7 +6,7 @@ df = df[['problem', 'answer']]
 df.rename(columns={'problem':'question'}, inplace=True)
 df.head()
 
-# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:00.767465Z","iopub.execute_input":"2025-03-22T19:51:00.767674Z","iopub.status.idle":"2025-03-22T19:51:00.779365Z","shell.execute_reply.started":"2025-03-22T19:51:00.767656Z","shell.execute_reply":"2025-03-22T19:51:00.778784Z"}}
+# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:00.767465Z","iopub.execute_input":"2025-03-22T19:51:00.767674Z","iopub.status.idle":"2025-03-22T19:51:00.779365Z","shell.execute_reply.started":"2025-03-22T19:51:00.767656Z","shell.execute_reply":"2025-03-22T19:51:00.778784Z"},"jupyter":{"outputs_hidden":false}}
 df['answer'] = df['answer'].astype(str)
 df['answer'] = '#### ' + df['answer']
 
@@ -16,7 +16,7 @@ df['question'] = df['question'].astype(str)
 # Convert to HF Dataset
 custom_dataset = Dataset.from_pandas(df)
 
-# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:00.780531Z","iopub.execute_input":"2025-03-22T19:51:00.780742Z","iopub.status.idle":"2025-03-22T19:51:29.335914Z","shell.execute_reply.started":"2025-03-22T19:51:00.780725Z","shell.execute_reply":"2025-03-22T19:51:29.335214Z"}}
+# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:00.780531Z","iopub.execute_input":"2025-03-22T19:51:00.780742Z","iopub.status.idle":"2025-03-22T19:51:29.335914Z","shell.execute_reply.started":"2025-03-22T19:51:00.780725Z","shell.execute_reply":"2025-03-22T19:51:29.335214Z"},"jupyter":{"outputs_hidden":false}}
 # 📝 LaTRO Kaggle Notebook with Full RLOO + SFT Loss + KL Penalty + Save Model + Full Truncation + Chat Template Logic
 
 from dataclasses import dataclass, field
@@ -33,7 +33,7 @@ from accelerate import Accelerator
 class TrainerConfig:
     exp_name: str = "latro_kaggle_exp"
     run_name: Optional[str] = None
-    model_name_or_path: str = '/kaggle/input/deepseek-r1/transformers/deepseek-r1-distill-qwen-1.5b/2' #"deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B" #"EleutherAI/pythia-160m"
+    model_name_or_path: str = '/kaggle/input/deepseek-r1/transformers/deepseek-r1-distill-qwen-1.5b/2'#"EleutherAI/pythia-160m"
     dataset_name: Literal["gsm8k"] = "gsm8k"
     total_episodes: Optional[int] = None
     num_train_epochs: int = 1
@@ -56,19 +56,17 @@ config = TrainerConfig()
 
 # --- TOKENIZER + MODEL ---
 tokenizer = AutoTokenizer.from_pretrained(config.model_name_or_path, padding_side="left")
-model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float16)
-ref_model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float16)
+model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float32)
+ref_model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float32)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-stop_sequences = ["The answer is", "\\boxed{", "Answer:"]
+stop_sequences = ["The answer is", "####", "Answer:"]
 stop_token_ids = [tokenizer.encode(seq, add_special_tokens=False) for seq in stop_sequences]
 
 # --- CHAT TEMPLATE LOGIC ---
 def apply_chat_template(question: str) -> str:
-    messages = [{"role": "system", "content": "Think step-by-step to arrive at the correct answer. Write down each thinking step. Only keep a minimum draft for each thinking step, with 5 words at most. Return final answer within \\boxed{}, after taking modulo 1000."},
-                {"role": "user", "content": question}]
-    return tokenizer.apply_chat_template(conversation=messages, tokenize=False, add_generation_prompt=True)
+    return f"<|user|> {question}\n<|assistant|> Let's think step by step."
 
 # --- DATASET ---
 def prepare_dataset_gsm8k(dataset: Dataset, tokenizer):
@@ -76,9 +74,9 @@ def prepare_dataset_gsm8k(dataset: Dataset, tokenizer):
     responses = [f"The answer is {a.split('#### ')[-1].strip()}" for a in dataset["answer"]]
     return Dataset.from_dict({"queries": queries, "responses": responses})
 
-#raw = load_dataset("openai/gsm8k", name="main")
-train_dataset = prepare_dataset_gsm8k(custom_dataset.select(range(8)), tokenizer)
-eval_dataset = prepare_dataset_gsm8k(custom_dataset.select(range(8,10)), tokenizer)
+raw = load_dataset("openai/gsm8k", name="main")
+train_dataset = prepare_dataset_gsm8k(raw["train"].select(range(10)), tokenizer)
+eval_dataset = prepare_dataset_gsm8k(raw["test"].select(range(5)), tokenizer)
 
 # --- TRAINER ---
 class FullLatroTrainer:
@@ -117,11 +115,11 @@ class FullLatroTrainer:
     def compute_logprobs(self, model, inputs, labels, context_lengths):
         outputs = model(**inputs)
         logits = outputs.logits[:, :-1]
-        log_probs = F.log_softmax(logits, dim=-1)
-        #log_probs = log_probs[:, -target.shape[1]:, :]
+
+        # Align log_probs length with target length
         target = labels["input_ids"][:, 1:]
+        log_probs = F.log_softmax(logits, dim=-1)
         log_probs = log_probs[:, -target.shape[1]:, :]
-        
 
         mask = torch.arange(target.shape[1]).unsqueeze(0).to(target.device) >= context_lengths.unsqueeze(1)
         loss = F.nll_loss(log_probs.reshape(-1, log_probs.size(-1)), target.reshape(-1), reduction='none')
@@ -146,7 +144,8 @@ class FullLatroTrainer:
                 rewards = []
                 ref_rewards = []
                 for _ in range(config.rloo_k):
-                    generation = self.model.generate(**inputs, max_new_tokens=config.response_length)
+                    unwrapped_model = self.accelerator.unwrap_model(self.model)
+                    generation = unwrapped_model.generate(**inputs, max_new_tokens=config.response_length)
                     generation = self.truncate_response(generation)
 
                     model_lp, model_log_probs, targets, mask = self.compute_logprobs(self.model, {"input_ids": generation}, labels, context_lengths)
@@ -183,7 +182,8 @@ class FullLatroTrainer:
         with torch.no_grad():
             for batch in self.eval_loader:
                 inputs = self.tokenizer(batch["queries"], return_tensors="pt", padding=True).to(self.accelerator.device)
-                generated = self.model.generate(**inputs, max_new_tokens=500)
+                unwrapped_model = self.accelerator.unwrap_model(self.model)
+                generated = unwrapped_model.generate(**inputs, max_new_tokens=500)
                 truncated = self.truncate_response(generated)
                 decoded = self.tokenizer.batch_decode(truncated, skip_special_tokens=True)
                 print(f"Q: {batch['queries'][0]} \nA: {decoded[0]}")
@@ -196,16 +196,13 @@ class FullLatroTrainer:
             print(f"Model saved to {save_dir}")
 
 
-
-
-# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:29.336727Z","iopub.execute_input":"2025-03-22T19:51:29.336940Z","iopub.status.idle":"2025-03-22T19:51:31.384546Z","shell.execute_reply.started":"2025-03-22T19:51:29.336922Z","shell.execute_reply":"2025-03-22T19:51:31.383807Z"}}
+# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:29.336727Z","iopub.execute_input":"2025-03-22T19:51:29.336940Z","iopub.status.idle":"2025-03-22T19:51:31.384546Z","shell.execute_reply.started":"2025-03-22T19:51:29.336922Z","shell.execute_reply":"2025-03-22T19:51:31.383807Z"},"jupyter":{"outputs_hidden":false}}
 # --- RUN TRAINING ---
 trainer = FullLatroTrainer(model, ref_model, tokenizer, train_dataset, eval_dataset, config)
 
-
-# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:31.385262Z","iopub.execute_input":"2025-03-22T19:51:31.385483Z","iopub.status.idle":"2025-03-22T19:51:56.011899Z","shell.execute_reply.started":"2025-03-22T19:51:31.385465Z","shell.execute_reply":"2025-03-22T19:51:56.010870Z"}}
+# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:31.385262Z","iopub.execute_input":"2025-03-22T19:51:31.385483Z","iopub.status.idle":"2025-03-22T19:51:56.011899Z","shell.execute_reply.started":"2025-03-22T19:51:31.385465Z","shell.execute_reply":"2025-03-22T19:51:56.010870Z"},"jupyter":{"outputs_hidden":false}}
 trainer.train()
 
-# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T20:29:50.707367Z","iopub.execute_input":"2025-03-22T20:29:50.707713Z"}}
+# %% [code] {"execution":{"iopub.status.busy":"2025-03-22T20:29:50.707367Z","iopub.execute_input":"2025-03-22T20:29:50.707713Z"},"jupyter":{"outputs_hidden":false}}
 trainer.evaluate()
 trainer.save_model("./latro_final_checkpoint")
