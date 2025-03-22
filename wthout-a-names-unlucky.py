@@ -43,7 +43,7 @@ class TrainerConfig:
     rollout_batch_size: int = 2
     gradient_accumulation_steps: int = 1
     learning_rate: float = 5e-7
-    rloo_k: int = 4
+    rloo_k: int = 2
     kl_coef: float = 0.05
     response_length: int = 200
     stop_token: Optional[str] = "both"
@@ -57,7 +57,7 @@ config = TrainerConfig()
 # --- TOKENIZER + MODEL ---
 tokenizer = AutoTokenizer.from_pretrained(config.model_name_or_path, padding_side="left")
 model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float32)
-ref_model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float32)
+ref_model = AutoModelForCausalLM.from_pretrained(config.model_name_or_path, torch_dtype=torch.float32).to('cpu')
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -94,6 +94,8 @@ class FullLatroTrainer:
 
         self.model = self.accelerator.prepare(self.model)
         self.ref_model = self.ref_model.to(self.accelerator.device)
+        self.model.gradient_checkpointing_enable()
+
 
     def truncate_response(self, sequences):
         truncated = []
@@ -194,7 +196,6 @@ class FullLatroTrainer:
             self.model.save_pretrained(save_dir)
             self.tokenizer.save_pretrained(save_dir)
             print(f"Model saved to {save_dir}")
-
 
 # %% [code] {"execution":{"iopub.status.busy":"2025-03-22T19:51:29.336727Z","iopub.execute_input":"2025-03-22T19:51:29.336940Z","iopub.status.idle":"2025-03-22T19:51:31.384546Z","shell.execute_reply.started":"2025-03-22T19:51:29.336922Z","shell.execute_reply":"2025-03-22T19:51:31.383807Z"},"jupyter":{"outputs_hidden":false}}
 # --- RUN TRAINING ---
