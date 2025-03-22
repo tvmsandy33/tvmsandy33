@@ -74,7 +74,7 @@ def prepare_dataset_gsm8k(dataset: Dataset, tokenizer):
     responses = [f"The answer is {a.split('#### ')[-1].strip()}" for a in dataset["answer"]]
     return Dataset.from_dict({"queries": queries, "responses": responses})
 
-raw = load_dataset("openai/gsm8k", name="main")
+#raw = load_dataset("openai/gsm8k", name="main")
 train_dataset = prepare_dataset_gsm8k(raw["train"].select(range(10)), tokenizer)
 eval_dataset = prepare_dataset_gsm8k(raw["test"].select(range(5)), tokenizer)
 
