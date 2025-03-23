@@ -1,4 +1,3 @@
-# %% [code]
 # %% [code] {"execution":{"iopub.status.busy":"2025-03-22T23:21:44.343870Z","iopub.execute_input":"2025-03-22T23:21:44.344220Z","iopub.status.idle":"2025-03-22T23:21:46.587112Z","shell.execute_reply.started":"2025-03-22T23:21:44.344168Z","shell.execute_reply":"2025-03-22T23:21:46.586094Z"},"jupyter":{"outputs_hidden":false}}
 import pandas as pd
 from datasets import Dataset
@@ -159,7 +158,8 @@ class FullLatroTrainer:
 
                     model_lp, model_log_probs, targets, mask = self.compute_logprobs(self.model, {"input_ids": generation}, labels, context_lengths)
                     with torch.no_grad():
-                        ref_lp, _, _, _ = self.compute_logprobs(self.ref_model, {"input_ids": generation}, labels, context_lengths)
+                        generation_cpu = generation.to('cpu')
+                        ref_lp, _, _, _ = self.compute_logprobs(self.ref_model, {"input_ids": generation_cpu}, labels, context_lengths)
 
                     rewards.append(-model_lp)
                     ref_rewards.append(-ref_lp)
@@ -171,6 +171,7 @@ class FullLatroTrainer:
                 advantages = rewards - baseline
 
                 # KL penalty
+                ref_rewards = ref_rewards.to(rewards.device)
                 kl_penalty = -config.kl_coef * (rewards - ref_rewards)
                 advantages += kl_penalty
 
